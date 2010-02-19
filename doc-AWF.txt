@@ -1,0 +1,57 @@
+class Statistics:
+
+ -> create an array $stat with statistics about the current wikitext
+
+ -> the computation of the statistics are divised into 3x3 = 9 levels:
+    - L1-x: objective statistics (independant of the nature of the text)
+      - L1-1: line-by-line statistics
+      - L1-2: Meso-scale statistics
+      - L1-3: Full-text statistics
+    - L2-x: wikisyntaxed statistics (related to the nature of the wikisyntax)
+      - L2-1: Line-by-line statistics
+      - L2-2: Meso-scale statistics
+      - L2-3: Full-text statistics
+    - L3-x: unwikisyntaxed statistics (related to implicit rules people who don't know the wikisyntax used to use)
+      - L3-1: Line-by-line statistics
+      - L3-2: Meso-scale statistics
+      - L3-3: Full-text statistics
+
+ -> the resulting array is divided into categories and subcategories:
+    CATEGORY/SUBCATEGORY                                                        LEVEL   REQUIRES
+    - sizelines (lines array): size of the lines .............................. L1-1    
+    - blanklines (line array): blank lines .................................... L1-1    sizelines
+    - nbcapitals (number): number of capitals in the text ..................... L1-3    
+    - nbwords (array): number of words in the text                                      
+      - nbwords (number): number of words ..................................... L1-3    
+    - interwikis (line array): interwikis ..................................... L2-1    
+    - categories (line array): categories ..................................... L2-1    
+    - titles (array): titles of the parts                                               
+      - wikititles (line array): wiki titles .................................. L2-1    
+    - frames (array): wikiframes created by an initial space                            
+      - framelines (lines array): lines beginning with a space ................ L2-1    
+      - frames (array): visual frames ......................................... L2-2    frames/framelines
+        - 0 (number): first line of the frame                                           
+        - 1 (number): size of the frame                                                 
+    - nbtemplates (array): number of templates                                          
+      - nbtemplates (number): number of well-formed templates ................. L2-3    
+      - nbmisformedtemplates (number): 'number' of misformed templates ........ L2-3    
+    - nbwikilinks (array): number of wikilinks                                          
+      - nbwikilinks (number): number of well-formed wikilinks ................. L2-3    
+    - lists (array): bulleted and numbered lists                                        
+      - wikibulletedlists (line array): lines beginning with `*' .............. L2-1    
+      - wikinumberedlists (line array): lines beginning with `#' .............. L2-1    
+      - rawbulletedlists (line array): line matching an other bulleted list ... L3-1    
+        - type (number): index of the type of bullet                                    
+        - spaces (number): number of spaces before the bullet                           
+      - rawnumberedlists (line array): line matching an other numbered list ... L3-1    
+        - type (number): index of the type of bullet                                    
+        - spaces (number): number of spaces before the bullet                           
+        - number (number): number written for the bullet                                
+    - paragraphs (array): paragraphs                                                    
+      - wikiparagraphs (line array): wiki (single line) paragraphs ............ L2-1    blanklines, frames/framelines, lists/wikibulletedlists, lists/wikinumberedlists, titles/wikititles
+      - rawparagraphslines (line array): line belonging to a raw paragraph .... L3-2*   blanklines, frames/framelines, lists/wikibulletedlists, lists/wikinumberedlists, titles/wikititles
+      - rawparagraphs (array): visual raw paragraphs .......................... L3-2    paragraphs/rawparagraphlines
+        - 0 (number): first line of the raw paragraph                                   
+        - 1 (number): size of the raw paragraph                                         
+    
+
