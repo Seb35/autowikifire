@@ -7,6 +7,15 @@ require_once( 'Settings.php' );
 //   But it can be read
 class AWF_line
 {
+	const LINE_UNDEFINED      = 0;
+	const LINE_BLANKLINE      = 1;
+	const LINE_WIKITITLE      = 2;
+	const LINE_FRAMELINE      = 3;
+	const LINE_CATEGORY_ONLY  = 4;
+	const LINE_INTERWIKI_ONLY = 5;
+	const LINE_WIKIBULLET     = 6;
+	const LINE_WIKINUMBER     = 7;
+	
 	########
 	# Data #
 	########
@@ -15,7 +24,8 @@ class AWF_line
 	public $line   = '';
 	private $text  = null;
 	
-	// Line-by-line statistics
+	// Line-by-line properties
+	public $status     = LINE_UNDEFINED; // number
 	public $sizeline   = 0;        // number
 	public $blankline  = false;    // boolean (NB: this should be true by default (sizeline==0) but introduces a bug in AWF_text::$nbblanklines < 0)
 	public $wikititle  = 0;        // number
@@ -27,23 +37,42 @@ class AWF_line
 	public $rawbullet  = false;    // false or array( 'type'=>number, 'spaces'=>number )
 	public $rawnumber  = false;    // false or array( 'type'=>number, 'spaces'=>number, 'number'=>number )
 	
-	// Local statistics
+	// Local properties
 	public $wikiparagraph = false; // boolean
 	public $rawparagraph  = false; // boolean
 	
 	// Facilities
 	public static $regexInterwikis;
 	public static $regexCategories;
+	public static $regexInterwikis2;
+	public static $regexCategories2;
 	
 	function __construct( $line, $text ) {
 		
 		$this->line = $line;
 		$this->text = $text;
 		
-		$this->update();
+		$this->update_props();
 	}
 	
-	function update() {
+	/**
+	 * Concat this line with another line
+	 * 
+	 * @param $other_line: (string) the second line
+	 */
+	function concat( $other_line ) {
+		
+		$this->line .= $other_line;
+		
+		$this->update_props();
+	}
+	
+	function __tostring() {
+		
+		return $this->line;
+	}
+	
+	function update_props() {
 		
 		$this->update_sizeline();
 		$this->update_blankline();
@@ -76,6 +105,7 @@ class AWF_line
 		
 		// Really update the blankline status
 		$this->blankline = ( $this->sizeline == 0 );
+		if( $this->blankline ) $this->status = LINE_BLANKLINE;
 		
 		// Update the counter
 		$this->text->nbblanklines += intval($this->blankline);
@@ -87,12 +117,12 @@ class AWF_line
 		$this->text->nbwikititles -= intval($this->wikititle);
 		
 		// Really update the wikititle status
-		     if( preg_match( '/^={6}.*={6} *$/u', $this->line ) ) $this->wikititles = 6;
-		else if( preg_match( '/^={5}.*={5} *$/u', $this->line ) ) $this->wikititles = 5;
-		else if( preg_match( '/^={4}.*={4} *$/u', $this->line ) ) $this->wikititles = 4;
-		else if( preg_match( '/^={3}.*={3} *$/u', $this->line ) ) $this->wikititles = 3;
-		else if( preg_match( '/^={2}.*={2} *$/u', $this->line ) ) $this->wikititles = 2;
-		else if( preg_match( '/^={1}.*={1} *$/u', $this->line ) ) $this->wikititles = 1;
+		     if( preg_match( '/^={6}.*={6} *$/u', $this->line ) ) { $this->wikititles = 6; $this->status = LINE_WIKITITLE; }
+		else if( preg_match( '/^={5}.*={5} *$/u', $this->line ) ) { $this->wikititles = 5; $this->status = LINE_WIKITITLE; }
+		else if( preg_match( '/^={4}.*={4} *$/u', $this->line ) ) { $this->wikititles = 4; $this->status = LINE_WIKITITLE; }
+		else if( preg_match( '/^={3}.*={3} *$/u', $this->line ) ) { $this->wikititles = 3; $this->status = LINE_WIKITITLE; }
+		else if( preg_match( '/^={2}.*={2} *$/u', $this->line ) ) { $this->wikititles = 2; $this->status = LINE_WIKITITLE; }
+		else if( preg_match( '/^={1}.*={1} *$/u', $this->line ) ) { $this->wikititles = 1; $this->status = LINE_WIKITITLE; }
 		else $this->wikititle = 0;
 		
 		// Update the counter
@@ -106,12 +136,16 @@ class AWF_line
 		
 		// Really update the frameline status
 		$this->frameline = ( $this->line[0] == ' ' );
+		if( $this->frameline ) $this->status = LINE_FRAMELINE;
 		
 		// Update the counter
 		$this->text->nbframelines += intval($this->frameline);
 	}
 	
 	function update_interwikis() {
+		
+		// A chance to skip this heavy step
+		if( $this->status != LINE_UNDEFINED ) return;
 		
 		// Update the counter
 		$this->text->nbinterwikis -= count($this->interwikis);
@@ -128,6 +162,8 @@ class AWF_line
 				
 				$this->interwikis[$i] = $localmatches[$i][1].':'.$localmatches[$i][2];
 			}
+			
+			if( preg_match( self::$regexInterwikis2, $this->line ) ) $this->status = LINE_INTERWIKI_ONLY;
 		}
 		
 		// Update the counter
@@ -135,6 +171,9 @@ class AWF_line
 	}
 	
 	function update_categories() {
+		
+		// A chance to skip this heavy step
+		if( $this->status != LINE_UNDEFINED ) return;
 		
 		// Update the counter
 		$this->text->nbcategories -= count($this->categories);
@@ -148,6 +187,8 @@ class AWF_line
 			preg_match_all( self::$regexCategories, $this->line, $localmatches );
 			
 			$this->categories = $localmatches[1];
+			
+			if( preg_match( self::$regexCategories2, $this->line ) ) $this->status = LINE_CATEGORY_ONLY;
 		}
 		
 		// Update the counter
@@ -156,11 +197,15 @@ class AWF_line
 	
 	function update_wikibullet() {
 		
+		// A chance to skip this heavy step
+		if( $this->status != LINE_UNDEFINED ) return;
+		
 		// Update the counter
 		$this->text->nbwikibullets -= intval($this->wikibullet);
 		
 		// Really update the wikibullet status
 		$this->wikibullet = ( preg_match( '/^\*/u', $this->line ) > 0 );
+		if( $this->wikibullet ) $this->status = LINE_WIKIBULLET;
 		
 		// Update the counter
 		$this->text->nbwikibullets += intval($this->wikibullet);
@@ -168,11 +213,15 @@ class AWF_line
 	
 	function update_wikinumber() {
 		
+		// A chance to skip this heavy step
+		if( $this->status != LINE_UNDEFINED ) return;
+		
 		// Update the counter
 		$this->text->nbwikinumbers -= intval($this->wikinumber);
 		
 		// Really update the wikinumber status
 		$this->wikinumber = ( preg_match( '/^#/u', $this->line ) > 0 );
+		if( $this->wikinumber ) $this->status = LINE_WIKINUMBER;
 		
 		// Update the counter
 		$this->text->nbwikinumbers += intval($this->wikinumber);
@@ -181,6 +230,9 @@ class AWF_line
 	function update_rawbullet() {
 		
 		global $wgBulletedList;
+		
+		// A chance to skip this heavy step
+		if( $this->status != LINE_UNDEFINED && $this->status != LINE_FRAMELINE ) return;
 		
 		// Update the counter
 		$this->text->nbrawbullets -= intval( $this->rawbullet != false );
@@ -207,6 +259,9 @@ class AWF_line
 	function update_rawnumber() {
 		
 		global $wgNumberedList;
+		
+		// A chance to skip this heavy step
+		if( $this->status != LINE_UNDEFINED && $this->status != LINE_FRAMELINE ) return;
 		
 		// Update the counter
 		$this->text->nbrawnumbers -= intval( $this->rawnumber != false );
@@ -238,13 +293,15 @@ class AWF_line
 
 class AWF_text implements ArrayAccess, Iterator
 {
-	################
-	# Private data #
-	################
+	#################
+	# Internal data #
+	#################
 	
-	private $text;  // string
-	private $lines; // array of AWF_line
-	private $index; // integer
+	private $text;    // string
+	public $title;    // string
+	private $lines;   // array of AWF_line
+	private $index;   // integer
+	private $figures; // number
 	
 	
 	###############
@@ -255,7 +312,7 @@ class AWF_text implements ArrayAccess, Iterator
 	public $nblines              = 0;
 	public $truenblines          = 0;
 	
-	// Line-by-line statistics
+	// Line-by-line properties
 	public $totalsizelines       = 0;
 	public $nbblanklines         = 0;
 	public $nbwikititles         = 0;
@@ -267,13 +324,19 @@ class AWF_text implements ArrayAccess, Iterator
 	public $nbrawbullets         = 0;
 	public $nbrawnumbers         = 0;
 	
-	// Local statistics
-	public $frames               = array();
+	// Local properties
+	public $frameslist           = array();
+	public $nbframeslist         = 0;
 	public $nbwikiparagraphs     = 0;
 	public $nbrawparagraphs      = 0;
-	public $rawparagraphs        = array();
+	public $rawparagraphslist    = array();
+	public $nbrawparagraphslist  = 0;
+	public $rawbulletedlists     = array();
+	public $nbrawbulletedlists   = 0;
+	public $rawnumberedlists     = array();
+	public $nbrawnumberedlists   = 0;
 	
-	// Global statistics
+	// Global properties
 	public $nbwords              = 0;
 	public $nbcapitals           = 0;
 	public $nbwikilinks          = 0;
@@ -285,18 +348,22 @@ class AWF_text implements ArrayAccess, Iterator
 	# Constructor #
 	###############
 	
-	public function __construct( $text ) {
+	public function __construct( $title, $text ) {
 		
 		global $wgCategoryLocalName, $wgInterwikis;
 		
 		// Initialization of precomputed constants
-		AWF_line::$regexCategories = '/\[\[(?:'.$wgCategoryLocalName.'|Category):(.*)\]\]/uU';
-		AWF_line::$regexInterwikis = '/\[\[('.implode( '|',$wgInterwikis ).'):(.*)\]\]/uU';
+		AWF_line::$regexCategories  = '/\[\[(?:'.$wgCategoryLocalName.'|Category):(.*)\]\]/uU';
+		AWF_line::$regexInterwikis  = '/\[\[('.implode( '|',$wgInterwikis ).'):(.*)\]\]/uU';
+		AWF_line::$regexCategories2 = '/^\[\[(?:'.$wgCategoryLocalName.'|Category):(.*)\]\]$/uU';
+		AWF_line::$regexInterwikis2 = '/^\[\[('.implode( '|',$wgInterwikis ).'):(.*)\]\]$/uU';
 		
 		// Trivial initialization
-		$this->text  = $text;
-		$this->lines = array();
-		$this->index = 0;
+		$this->text    = $text;
+		$this->title   = $title;
+		$this->lines   = array();
+		$this->index   = 0;
+		$this->figures = 0;
 		
 		// Cut off the text into lines
 		$lines = $this->explodeText( $text );
@@ -304,13 +371,13 @@ class AWF_text implements ArrayAccess, Iterator
 		// Initialization of the lines
 		$this->nblines = count($lines);
 		$this->truenblines = $this->nblines-4;
-		for( $i=0; $i<count($lines); $i++ ) {
+		for( $i=0; $i<$this->nblines; $i++ ) {
 			
 			$this->lines[$i] = new AWF_line( $lines[$i], $this );
 		}
 		
-		// Update the statistics
-		$this->update_stat();
+		// Update the properties
+		$this->update_props();
 	}
 	
 	private function explodeText( $text ) {
@@ -334,7 +401,7 @@ class AWF_text implements ArrayAccess, Iterator
 	 */
 	function offsetExists( $index ) {
 		
-		return ( $index >= 0 && $index < count($this->lines) );
+		return ( $index >= 0 && $index < $this->nblines );
 	}
 	
 	/**
@@ -353,7 +420,7 @@ class AWF_text implements ArrayAccess, Iterator
 	
 	/**
 	 * Remplace a line in the text
-	 * WARNING: do not update global nor local statistics!
+	 *   WARNING: do not update global nor local properties!
 	 * 
 	 * @param $index: index of the line in the text
 	 * @param $line: new string
@@ -367,12 +434,13 @@ class AWF_text implements ArrayAccess, Iterator
 		unset( $this->lines[$index] );
 		
 		// Set the new value
-		$this->lines[$index] = new AWF_line( $line );
+		$this->lines[$index] = new AWF_line( $line, $this );
 	}
 	
 	/**
 	 * Remove a line of the text
-	 * WARNING: do not update global nor local statistics!
+	 *   WARNING: do not update global nor local properties!
+	 *   WARNING: do not compact the resulting text!
 	 * 
 	 * @param $index: index of the line in the text
 	 */
@@ -381,16 +449,8 @@ class AWF_text implements ArrayAccess, Iterator
 		// Don't continue if the offset doesn't exist
 		if( !$this->offsetExists($index) ) return;
 		
-		// Remove the line and compact the resulting array
-		for( $i=$index; $i<count($this->lines)-1; $i++ ) {
-			
-			unset( $this->lines[$i] );
-			$this->lines[$i] = $this->lines[$i+1];
-		}
-		unset( $this->lines[count($this->lines)-1] );
-		
-		// Update the number of lines
-		$this->nblines = count($this->lines);
+		// Remove the line
+		unset( $this->lines[$index] );
 	}
 	
 	
@@ -450,8 +510,94 @@ class AWF_text implements ArrayAccess, Iterator
 	####################################
 	
 	/**
+	 * Toggle the state of figures at the beginning of a line (for external printing)
+	 */
+	function toggleFigures( $nbColsTerm = 0 ) {
+		
+		$this->figures = $nbColsTerm;
+	}
+	
+	/**
+	 * Affichage du text
+	 */
+	function __tostring() {
+		
+		if( $this->nblines == 0 ) return '';
+		
+		$text = '';
+		
+		if( $this->figures > 0 ) {
+			
+			// Number of figures required on the left
+			$nbfigures = intval(log($this->nblines,10))+1;
+			
+			// Number of columns of the terminal
+			$nbcols = $this->figures;
+			
+			// Ten's tab
+			for( $i=0; $i<=$nbfigures; $i++ ) $text .= ' ';
+			$counter = 0;
+			for( $i=0; $i<$nbcols-$nbfigures; $i++ ) {
+				if( $i%10 == 0 ) {
+					if( $counter >= 9 ) {
+						if( $i < $nbcols-$nbfigures-1 ) $text .= $counter;
+						$i++;
+					}
+					else $text .= $counter;
+					$counter++;
+				}
+				else $text .= ' ';
+			}
+			$text .= "\n";
+			
+			// Unit's tab
+			for( $i=0; $i<=$nbfigures; $i++ ) $text .= ' ';
+			for( $i=0; $i<$nbcols-$nbfigures-1; $i++ ) $text .= $i%10;
+			$text .= "\n";
+			
+			// First line
+			for( $k=0; $k<$nbfigures; $k++ ) $text .= '0';
+			$text .= '|';
+			$text .= $this->lines[0];
+			$text .= "\n";
+			
+			// Next lines
+			for( $j=0; $j<$nbfigures; $j++ ) {
+				
+				for( $i=pow(10,$j); $i<$this->nblines && $i<pow(10,$j+1); $i++ ) {
+					for( $k=$j+1; $k<$nbfigures ; $k++ ) $text .= '0';
+					$text .= $i;
+					$text .= '|';
+					$text .= $this->lines[$i];
+					$text .= "\n";
+				}
+			}
+		}
+		else {
+			
+			for( $i=0; $i<$this->nblines; $i++ ) {
+				
+				$text .= $this->lines[$i]."\n";
+			}
+		}
+		
+		return $text;
+	}
+	
+	/**
+	 * Compact the text
+	 *   Should be called after one or many line unsets
+	 */
+	function compact() {
+		
+		$this->lines = array_values( $this->lines );
+		$this->nblines = count( $this->lines );
+		$this->index = 0;
+	}
+	
+	/**
 	 * Add a new line inside the text
-	 * WARNING: do not update global nor local statistics
+	 * WARNING: do not update global nor local properties
 	 * 
 	 * @param $index: index of the line in the text
 	 * @param $line: string of the new line
@@ -459,42 +605,44 @@ class AWF_text implements ArrayAccess, Iterator
 	function addLine( $index, $line ) {
 		
 		// Move all lines to create a space into the text
-		for( $i=count($this->lines)-1; $i >= $index; $i-- ) {
+		for( $i=$this->nblines-1; $i >= $index; $i-- ) {
 			
 			$this->lines[$i+1] = $this->lines[$i];
 			unset( $this->lines[$i] );
 		}
 		
 		// Add the new line
-		$this->lines[$index] = new AWF_line( $line );
+		$this->lines[$index] = new AWF_line( $line, $this );
 		
 		// Update the number of lines
-		$this->nblines = count($this->lines);
+		$this->nblines = $this->nblines;
 	}
 	
 	/**
-	 * Update the statistics
+	 * Update the properties
 	 */
-	function update_stat() {
+	function update_props() {
 		
-		$this->update_local_stat();
-		$this->update_global_stat();
+		$this->update_local_props();
+		$this->update_global_props();
 	}
 	
 	/**
-	 * Update the local statistics
+	 * Update the local properties
 	 */
-	function update_local_stat() {
+	function update_local_props() {
 		
-		$this->update_frames();
+		$this->update_frameslist();
 		$this->update_wikiparagraphs();
 		$this->update_rawparagraphs();
+		$this->update_rawbulletedlists();
+		$this->update_rawnumberedlists();
 	}
 	
 	/**
-	 * Update the global statistics
+	 * Update the global properties
 	 */
-	function update_global_stat() {
+	function update_global_props() {
 		
 		$this->update_nbwords();
 		$this->update_nbcapitals();
@@ -504,12 +652,12 @@ class AWF_text implements ArrayAccess, Iterator
 	
 	
 	#####################
-	# Global statistics #
+	# Global properties #
 	#####################
 	
 	function update_nbwords() {
 		
-		$this->nbwords = preg_match_all( '/ .* /uU', $this->text, $localmatches );
+		$this->nbwords = preg_match_all( '/(?:^| ).*(?: |$)/uU', $this->text, $localmatches );
 	}
 	
 	function update_nbcapitals() {
@@ -546,31 +694,34 @@ class AWF_text implements ArrayAccess, Iterator
 	
 	
 	####################
-	# Local statistics #
+	# Local properties #
 	####################
 	
 	/**
 	 * Compute the frames of the text
 	 */
-	function update_frames() {
+	function update_frameslist() {
 		
 		// Initialize the default value: no frame (empty array)
-		$this->frames = array();
+		$this->frameslist = array();
+		$this->nbframeslist = 0;
 		
 		// If no frameline has been computed, skip this step
 		if( $this->nbframelines > 0 ) {
 			
-			for( $index=0; $index<count($this->lines); $index++ ) {
+			for( $index=0; $index<$this->nblines; $index++ ) {
 				
 				if( $this->lines[$index]->frameline ) {
 					
 					$size = 1;
-					while( $index+$size<count($this->lines) && $this->lines[$index+$size]->frameline ) $size++;
+					while( $index+$size<$this->nblines && $this->lines[$index+$size]->frameline ) $size++;
 					
-					$this->frames[] = array( 'firstline'=>$index, 'size'=>$size );
+					$this->frameslist[] = array( 'firstline'=>$index, 'size'=>$size );
 					$index += $size;
 				}
 			}
+			
+			$this->nbframeslist = count( $this->frameslist );
 		}
 	}
 	
@@ -582,7 +733,7 @@ class AWF_text implements ArrayAccess, Iterator
 		$insideTemplates = 0;
 		$this->nbwikiparagraphs = 0;
 		
-		for( $index=1; $index<count($this->lines)-1; $index++ ) {
+		for( $index=1; $index<$this->nblines-1; $index++ ) {
 			
 			// Initialize the default value: no wikiparagraph (false)
 			$this->lines[$index]->wikiparagraph = false;
@@ -611,53 +762,132 @@ class AWF_text implements ArrayAccess, Iterator
 	 */
 	function update_rawparagraphs() {
 		
-		$insideTemplates = 0;
-		$this->nbrawparagraphs = 0;
-		$this->rawparagraphs   = array();
+		// Initialize the default values
+		$this->nbrawparagraphs     = 0;
+		$this->rawparagraphslist   = array();
+		$this->nbrawparagraphslist = 0;
 		
-		for( $index=1; $index<count($this->lines)-1; $index++ ) {
+		//$insideTemplates = 0;
+		
+		for( $index=1; $index<$this->nblines-1; $index++ ) {
 			
 			// Initialize the default value: no rawparagraph (false)
 			$this->lines[$index]->rawparagraph = false;
 			
 			// Update the counter 'templates' (this is a simple checking)
-			$insideTemplates += preg_match_all( '/\{\{/u', $this->lines[$index]->line, $localmatches )
-			                  - preg_match_all( '/\}\}/u', $this->lines[$index]->line, $localmatches );
+			//$insideTemplates += preg_match_all( '/\{\{/u', $this->lines[$index]->line, $localmatches )
+			//                  - preg_match_all( '/\}\}/u', $this->lines[$index]->line, $localmatches );
+			//
+			//if( $insideTemplates > 0 ) continue;
 			
-			if( $insideTemplates > 0 ) continue;
+			if( $this->lines[$index]->status != LINE_UNDEFINED ) continue;
 			
-			if( $this->lines[$index]->blankline || $this->lines[$index]->frameline || $this->lines[$index]->wikibullet || $this->lines[$index]->wikinumber || $this->lines[$index]->wikititle ) continue;
-			
-			if( !$this->lines[$index+1]->blankline && !$this->lines[$index+1]->frameline && !$this->lines[$index+1]->wikibullet && !$this->lines[$index+1]->wikinumber && !$this->lines[$index+1]->wikititle ) {
+			if( $this->lines[$index+1]->status == LINE_UNDEFINED ) {
 				
 				$this->lines[$index]->rawparagraph = true;
 				$size = 1;
-				while( $index+$size<count($this->lines)-1 && !$this->lines[$index+$size]->blankline && !$this->lines[$index+$size]->frameline && !$this->lines[$index+$size]->wikibullet && !$this->lines[$index+$size]->wikinumber && !$this->lines[$index+$size]->wikititle ) {
+				
+				while( $index+$size<$this->nblines-1 && $this->lines[$index+$size]->status == LINE_UNDEFINED ) {
 					
 					$this->lines[$index+$size]->rawparagraph = true;
 					$size++;
 				}
 				
-				$this->rawparagraphs[] = array( 'firstline'=>$index, 'size'=>$size );
+				$this->rawparagraphslist[] = array( 'firstline'=>$index, 'size'=>$size );
 				
 				// Update the counter
 				$this->nbrawparagraphs += $size;
 				
-				$index += $size;
+				$index += $size-1;
 			}
 		}
+		
+		// Update the counter
+		$this->nbrawparagraphslist = count( $this->rawparagraphslist );
+	}
+	
+	function update_rawbulletedlists() {
+		
+		// Initialize the default values
+		$this->rawbulletedlists   = array();
+		$this->nbrawbulletedlists = 0;
+		
+		for( $index=0; $index<$this->nblines; $index++ ) {
+			
+			if( !$this->lines[$index]->rawbullet ) continue;
+			
+			$size = 1;
+			while(    $index+$size<$this->nblines
+			       && $this->lines[$index+$size]->rawbullet
+			       && $this->lines[$index]->rawbullet['type'] == $this->lines[$index+$size]->rawbullet['type']
+			       && $this->lines[$index]->rawbullet['spaces'] == $this->lines[$index+$size]->rawbullet['spaces'] ) {
+				
+				$size++;
+			}
+			
+			$this->rawbulletedlists[] = array( 'firstline' => $index, 'size' => $size );
+			
+			$index += $size-1;
+		}
+		
+		// Update the counter
+		$this->nbrawbulletedlists = count( $this->rawbulletedlists );
+	}
+	
+	function update_rawnumberedlists() {
+		
+		// Initialize the default values
+		$this->rawnumberedlists   = array();
+		$this->nbrawnumberedlists = 0;
+		
+		for( $index=0; $index<$this->nblines; $index++ ) {
+			
+			if( !$this->lines[$index]->rawnumber ) continue;
+			
+			$size = 1;
+			while(    $index+$size<$this->nblines
+			       && $this->lines[$index+$size]->rawnumber
+			       && $this->lines[$index]->rawnumber['type'] == $this->lines[$index+$size]->rawnumber['type']
+			       && $this->lines[$index]->rawnumber['spaces'] == $this->lines[$index+$size]->rawnumber['spaces']
+			       && $this->lines[$index]->rawnumber['number'] == $this->lines[$index+$size]->rawnumber['number']
+			     ) {
+				
+				$size++;
+			}
+			
+			$this->rawnumberedlists[] = array( 'firstline' => $index, 'size' => $size );
+			
+			$index += $size-1;
+		}
+		
+		// Update the counter
+		$this->nbrawnumberedlists = count( $this->rawnumberedlists );
 	}
 	
 	
 	######################
-	# Display statistics #
+	# Display properties #
 	######################
 	
-	function display_statistics(){
+	function display_props(){
 		
-		echo "* Statistics:\n";
+		echo "* Properties:\n";
 		
+		####################
+		# First properties #
+		####################
+		
+		// Number of lines
 		echo "  * Number of lines: ".$this->nblines."\n";
+		
+		// Sizelines
+		echo '    * Status of each line';
+		echo "\n";
+		echo '      * {';
+		foreach( $this as $index=>$line )
+			echo ' '.$line->status;
+		echo ' }';
+		echo "\n";
 		
 		#############
 		# Objective #
@@ -689,7 +919,7 @@ class AWF_text implements ArrayAccess, Iterator
 		echo "\n";
 		if( $this->nbblanklines > 0 ) {
 			echo '      * percentage = ';
-			printf( '%.1f%%', $this->nbblanklines/$this->truenblines*100 );
+			printf( '%.1f%%', ($this->nbblanklines-4)/$this->truenblines*100 );
 			echo "\n";
 			echo '      * {';
 			foreach( $this as $index=>$line )
@@ -818,11 +1048,11 @@ class AWF_text implements ArrayAccess, Iterator
 		echo '    * Frames:';
 		echo "\n";
 		echo '      * number = ';
-		echo count($this->frames);
+		echo $this->nbframeslist;
 		echo "\n";
-		if( count($this->frames) > 0 ) {
+		if( $this->nbframeslist > 0 ) {
 			echo '      * {';
-			foreach( $this->frames as $frame )
+			foreach( $this->frameslist as $frame )
 				printf( ' (%d,%d)', $frame['firstline'], $frame['size'] );
 			echo ' }';
 			echo "\n";
@@ -967,11 +1197,11 @@ class AWF_text implements ArrayAccess, Iterator
 		echo '    * Raw paragraphs:';
 		echo "\n";
 		echo '      * number of paragraphs = ';
-		echo count($this->rawparagraphs);
+		echo $this->nbrawparagraphslist;
 		echo "\n";
-		if( count($this->rawparagraphs) > 0 ) {
+		if( $this->nbrawparagraphslist > 0 ) {
 			echo '      * {';
-			foreach( $this->rawparagraphs as $paragraph )
+			foreach( $this->rawparagraphslist as $paragraph )
 				printf( ' (%d,%d)', $paragraph['firstline'], $paragraph['size'] );
 			echo ' }';
 			echo "\n";

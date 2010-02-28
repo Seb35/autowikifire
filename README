@@ -1,0 +1,36 @@
+= AutoWikiFire =
+
+== Purpose ==
+AutoWikiFire (AWF) aims, ideally, to wikify a text with the syntax of MediaWiki from a text written either by a newbie who don't know the wikisyntax either by experienced MediaWiki users who find it is speeder to use this tool than wikify themselves a page.
+AWF is primarily designed specifically for the French-speaking Wikipedia although a attempt has been made to have a program as general as possible, and to make the per-wiki specificities configurable per wiki.
+
+
+== Components ==
+
+AWF has be designed to have a number of (independant) components:
+* Decoffrage: a French word I use to speak of the phase which transform a raw article into a somewhat viewable article, typically raw lists beginning with `-';
+* Linker: engine which add wikilinks (with the help of the database);
+* Interwikizer: engine which add interwikis (with the help of the databases);
+* Categorizer: engine which add categories (with the help of the database);
+
+There is also a common basis: the representation of the Text with its properties.
+
+
+== Execution ==
+
+You must have PHP installed and, if you want an UI, a web server which can execute a PHP script (for instance Apache).
+
+=== Command line ===
+
+Type in a terminal:
+  php AutoWikiFire.php
+
+=== UI ===
+
+not yet written.
+
+
+== External links ==
+
+* [http://fr.wikipedia.org/wiki/Utilisateur:Seb35/AutoWikiFire Wiki page which coordinates the development]
+

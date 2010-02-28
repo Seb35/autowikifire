@@ -1,0 +1,28 @@
+AutoWikiFire ChangeLog
+
+== 0.4 (28 February 2010) ==
+
+* Added a function to print the links Linker::display_links
+* Small sanitizer of the potential links before any other check (spaces, wikisyntax)
+* Added the title to a text
+* Added a function Linker::collect_potential_links to try to guess links (before verify the guess with a call to the database), for now it focused on words beginning with capitals
+* Renamed the class Statistics into AWF_Text and the functions with 'stat' into 'properties'
+* Added a function Decoffrage::rawlists to transform the raw lists into wikilists with the experience of the old version
+* Added a function Decoffrage::rawparagraphs which use the new Text class instead of the old raw text/statistics
+* Created the classes AWF_Decoffrage, AWF_Linker, AWF_Interwikizer, AWF_Categorizer
+
+== 0.3 (19 February 2010) ==
+* Interface ArrayAccess and Iterator for Statistics
+* Created a class AWF_line which represents a line of the text with the properties attached only on the line
+* Created a class Statistics to manipulate easily the text without have to take care about the statistics of the text
+
+== 0.2 (14 February 2010) ==
+
+* An attempt to create a more sophisticated function to change raw lists
+* Added an array stat with many keys to describe a lot of properties of the text
+
+== 0.1 (31 January 2010) ==
+
+Attempt to make speedly a script to autowikify: it's not easy :)
+* Change `-(.*)' lines into `*$1'
+
